@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Agent Email Form</title>
+<style>
+body { font-family: 'Segoe UI', Arial, sans-serif; background: #f7f8fa; padding: 20px; color: #333; }
+h2 { text-align: center; color: #0d6efd; }
+.form-container { width: 1400px; margin: 20px auto; background: #fff; padding: 15px 20px; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.1); }
+
+.agent-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+    align-items: flex-end;
+    padding: 10px 0;
+    transition: all 0.3s ease;
+    border-bottom: 4px solid #323131;
+}
+.agent-row.expanded {
+    padding-bottom: 60px; /* extra space when dropdown open */
+}
+
+.input-group { position: relative; flex: 1; min-width: 150px; }
+.input-group input { width: 100%; border: none; border-bottom: 1px solid #aaa; padding: 5px 3px; font-size: 14px; background: transparent; color: #333; outline: none; }
+.input-group input:focus { border-bottom: 1px solid red; }
+.input-group label { position: absolute; left: 3px; top: 5px; color: #888; font-size: 14px; pointer-events: none; transition: all 0.3s ease; }
+.input-group input:focus + label, .input-group input:not(:placeholder-shown) + label { top: -15px; font-size: 12px; color: red; }
+
+button { margin-top: 15px; padding: 8px 15px; background: #0d6efd; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+button.remove-btn { background: #dc3545; }
+
+.dropdown-content { position: absolute; top: 100%; left: 0; background: #fff; border: 1px solid #ccc; width: 100%; z-index: 10; max-height: 150px; overflow-y: auto; display: none; border-radius: 5px; }
+.dropdown-content div { padding: 5px; cursor: pointer; }
+.dropdown-content div:hover { background: #f0f4ff; }
+
+/* --- Loader Mask --- */
+#preloader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 99999; display: none; }
+#loader { position: absolute; left: 50%; top: 50%; width: 150px; height: 150px; margin: -75px 0 0 -75px; border-radius: 50%; border: 3px solid transparent; border-top-color: #ff0062; animation: spin 2s linear infinite; }
+#loader:before, #loader:after { content: ""; position: absolute; border-radius: 50%; border: 3px solid transparent; }
+#loader:before { top: 5px; left: 5px; right: 5px; bottom: 5px; border-top-color: #0884e9; animation: spin 3s linear infinite; }
+#loader:after { top: 15px; left: 15px; right: 15px; bottom: 15px; border-top-color: #031c3a; animation: spin 1.5s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* --- Success Modal --- */
+#successModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); display: none; z-index: 999999; justify-content: center; align-items: center; }
+#successModalContent { background: #fff; padding: 30px 40px; border-radius: 10px; text-align: center; font-size: 18px; color: #333; }
+#successModal button { margin-top: 20px; background: #0d6efd; color: #fff; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; }
+
+#errorModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; z-index:1000; }
+#errorModal div { background:#fff; padding:20px; border-radius:8px; text-align:center; font-size:16px; }
+</style>
+</head>
+<body>
+
+<h2>Agent Email Form</h2>
+<div class="form-container" id="formContainer"></div>
+<button onclick="addAgentRow()">Add Agent</button>
+<button onclick="sendEmails()">Send Emails</button>
+
+<!-- Loader -->
+<div id="preloader"><div id="loader"></div></div>
+
+<!-- Success Modal -->
+<div id="successModal">
+    <div id="successModalContent">
+        Emails sent successfully!
+        <br>
+        <button onclick="closeSuccessModal()">Close</button>
+    </div>
+</div>
+
+<!-- Error Modal -->
+<div id="errorModal">
+    <div><span class="error-text">Error message</span></div>
+</div>
+
+<script>
+// --- Agents ---
+// Your agents array (keep the same as in your code)
+const agents = [  {"Agent":"COMTAL MANPOWER SYSTEM","Contact":"MURUGAIHA SURENTHIRARAJ","Address":"Kopay South, Old Road, Kopay","Telephone":"778448783","Email":"comtalmanpowersystem@gmail.com"},
+    {"Agent":"LEEM TECHNOLOGY","Contact":"NALIN SHAMINDRA SnLVA","Address":"55, Lankamatha Mawatha, Mahabage, Ragama.","Telephone":"727576100","Email":"leemtechnology@gmail.com"},
+    {"Agent":"NW NET COMPUTER SYSTEM","Contact":"W.M.NUWAN WIJETHUNGA","Address":"114, Ulhitiya, Girandurukotte","Telephone":"779686352, 706686352","Email":"nuwanwije2007@gmail.com"},
+    {"Agent":"ETEAM TECHNOLOGY","Contact":"W.M.NALIN KUMARA WEERAKOON","Address":"29, 3rd Step, Bakamoona","Telephone":"772163599","Email":"eteamtec@gmail.com"},
+    {"Agent":"EZ TECH COMPUTERS","Contact":"K .W.C PRANEETH VIJAYANTHA","Address":"No-4, Croos Watta, Pilkatumulla Road, Nattandiya","Telephone":"772587025","Email":"praneethv3.eztech@gmail.com"},
+    {"Agent":"RAPID COMPUTER SYSTEM","Contact":"N.P. WIMAL CHANDRA RATHNAYAKA","Address":"No-49D, Main Street, Bank Snde, Anuradapura","Telephone":"702471345","Email":"rapidwimal@gmail.com"},
+    {"Agent":"COSMO COMPUTERS","Contact":"UPAJEEWA RUWAN KUMARA","Address":"N62, 3rd Floor, Snnger Plus Building, Colombo Road, Kurunegala","Telephone":"778221826","Email":"ruwan.u@gmail.com"},
+    {"Agent":"CURE COMPUTER","Contact":"H.M. CHANDANA PRIYANTHA","Address":"63, Monnekulama, Nikeweratiya","Telephone":"722906906","Email":"chandana.cph1985@gmail.com"},
+    {"Agent":"EYE COMPUTERS","Contact":"M.D.G. NUWAN PRASANNA JAYARATHNA","Address":"444/2, Galatebendiwewa, Awlegama","Telephone":"773843115","Email":"nuwanpj1@gmail.com"},
+    {"Agent":"PC FRIENDS","Contact":"V. SUBENTHIRAN","Address":"No-214, Station Road, Kurumankadu, Vavuniya","Telephone":"772365653","Email":"pcfriends.lk@gmail.com"},
+    {"Agent":"CARE TECHNOLOGY","Contact":"D.S NISHANTHA LIYANAGE","Address":"No 59/4 Prathibimbarama Rd, Dehiwala.","Telephone":"777671508","Email":"liyanage_n@yahoo.com"},
+    {"Agent":"REALLY TECH ZONE","Contact":"M.C. WIJESnNGHA","Address":"16/118, Hikgahawatta Mawatha, Kalapaluwawa, Rajagiriya","Telephone":"714380521, 772517001","Email":"mchandimawije@gmail.com"},
+    {"Agent":"WESTERN DIGITAL COMPUTER SYSTEMS AND ELECTRONICS (PVT) LTD. (IN-HOUSE)","Contact":"SURANGA PUSHPAKUMARA","Address":"Western Digital Computer Systems And Electronics (Pvt) Ltd., No 128-E4, High Level Road, Kottawa.","Telephone":"773922901, 112183937","Email":"westernSnngerservice@gmail.com"},
+    {"Agent":"MADHAWA COMPUTER REPAIR","Contact":"J.G. SANDUN MADHAWA","Address":"Snnger Service Center - Anuradapura","Telephone":"786203224","Email":"sandunmadawagunasekara@gmail.com"},
+    {"Agent":"VIDEO WORLD COMPUTERS","Contact":"ROSANA SANDUN ASANKA AHANGAMA","Address":"No 96/1, Srimawo Bandaranayaka Mawatha, Rathnapura","Telephone":"712383188","Email":"ahangamar@gmail.com"},
+    {"Agent":"PC SYSTEM","Contact":"PADMIKA RATHNAYAKE","Address":"No-C31, Commercial Center, Bandarawela","Telephone":"777917241","Email":"pcsystemslk@gmail.com"},
+    {"Agent":"RAYAN ZONE","Contact":"RAYAN SALIYA ATTANAYAKE","Address":"No-15/12/B, Sudharmarama Mawatha, Bowala, Kandy","Telephone":"716867787","Email":"rayansaliya@yahoo.co.uk"},
+    {"Agent":"ST COMPUTERS","Contact":"SUMUDU SOMAWEERA","Address":"11 1/2, Main Street, Kegalla","Telephone":"777724213","Email":"sumudu32@gmail.com"},
+    {"Agent":"TECHNO WORLD","Contact":"CHAMINDA SAMPATH LIYANAGE","Address":"167/2, Halugama, Mirigama","Telephone":"763187122","Email":"sampath87@gmail.com"},
+    {"Agent":"ASOFT COMPUTERS","Contact":"ARUNA LOSHANTHA","Address":"C59, Dedicated Economic Center, Udupusselawa Road, Nuwara Eliya","Telephone":"773069746","Email":"asoftcomputerne@gmail.com"},
+    {"Agent":"BESTWAY COMPUTER","Contact":"BUDDI ERANDA ATULUGAMA","Address":"Private Bus Stand, Rathnapura Road, Avissawella","Telephone":"718237465","Email":"computerbestway@gmail.com"},
+    {"Agent":"SSR COMPUTER SOLUTIONS","Contact":"SAMPATH SURANGA RAJAPAKSHA","Address":"G21, Muwangala, Hingurana","Telephone":"717417952","Email":"rajapakshacomputer@gmail.com"},
+    {"Agent":"WORLD IT SOLUTION","Contact":"NALIN INDUNIL","Address":"A9, Public Fair. New Town, Embilipitiya","Telephone":"767549300","Email":"indunilnalin@gmail.com"},
+    {"Agent":"PROGRESS COMPUTER TECHNOLOGY","Contact":"RANGANA PERERA","Address":"No-90, Maguruwila Road, Gonawala, Kelaniya","Telephone":"719804203","Email":"pctechnology49@gmail.com"},
+    {"Agent":"RED LINE COMPUTER","Contact":"Mayura CHULANTHA YATAWARA","Address":"Snnger Service Center - Kandy (In-House Sfa)","Telephone":"712779469","Email":"mayurams1327@gmail.com"},
+    {"Agent":"THARU TECHNOLODIES","Contact":"THARAKA BANDARA","Address":"139E, Pinkalla Road, Hirana, Panadura","Telephone":"711860667","Email":"tharakasuresh49@gmail.com"},
+    {"Agent":"THIRD EYE TECHNOLOGIES","Contact":"SAMANTHA SUMANAWEERA","Address":"F16/2A, Nankurugama, Mawanella","Telephone":"719044594","Email":"ssumanaweera@gmail.com"},
+    {"Agent":"ICON TECHNOLOGIES","Contact":"P.L. SAHAN JOSEP COORAY","Address":"77/A/2, Buthgamuwa Road, Kalapaulwawa, Rajagiriya","Telephone":"766584848","Email":"sahanjcooray@icontech.lk"},
+    {"Agent":"LESHANI ELECTRICALS","Contact":"UDAYA WIJESURIYA","Address":"No 45, Mawathura, Gampola","Telephone":"717615088","Email":"udeshanwija8@gmail.com"},
+    {"Agent":"SP COMPUTERS","Contact":"SAMITHA PERERA","Address":"107B, Horana Road, Vilegoda, Kaluthra North","Telephone":"773626317","Email":"samitha16@gmail.com"},
+    {"Agent":"GOLD LION ELECTRONIC","Contact":"SAMINDA RUBASnNHE","Address":"Viraj Welendagoda, Thejjiwila","Telephone":"778515009","Email":"saminda.gle@gmail.com"},
+    {"Agent":"MC LINK","Contact":"MANOJ UDAYANGA","Address":"Batadombagahawatta, Ginimellagaha, Galle","Telephone":"773854224","Email":"wowmanoj@gmail.com"},
+    {"Agent":"NETPLUS TECHNOLOGIES","Contact":"DEEPAL LOKU HETTIARACHCHI","Address":"28/81A, 6th Lane, KulaSnri Kumarage Mawatha, Katuwana, Homagama","Telephone":"777668985","Email":"tdeepal@gmail.com"},
+    {"Agent":"SHADOW COMPUTER AND VIDEO HOUSE","Contact":"W.I AKILA DESHAN","Address":"Bustand, Ambalantota","Telephone":"702082865","Email":"adeshan6@gmail.com"},
+    {"Agent":"WESTERN DIGITAL COMPUTER SYSTEM & ELECTRONICS","Contact":"SURANGA PUSHPAKUMARA","Address":"128/E4, High Level Road, Kottawa","Telephone":"773922901","Email":"service@westerndigitalpc.lk"},
+    {"Agent":"G.P.W.ELECTRONICS","Contact":"G.P.W.ABEYWARDANA","Address":"18/4, Samudra Mawatha, Panadura.","Telephone":"777537171","Email":"pradeepwa@gmail.com"},
+    {"Agent":"SUPREME TECH COMPUTERS","Contact":"K.W.S.D.PUSHPA KUMARA (SURESH)","Address":"No.63/3/A, Hiripitiya, Pannipitiya","Telephone":"774402120","Email":"supremetechcomputer@gmail.com"},
+    {"Agent":"HASITHA ELECTRONICS AND ELECTRICALS","Contact":"HASITHA PRABASH SUDUSINGHA","Address":"Anduruppa, Mapalana Kamburupitiya.","Telephone":"713588561","Email":"haSithasuduSinghe29@gmail.com"},
+    {"Agent":"RANMAK TECH SOLUTIONS","Contact":"SHAMMI NIROSHANA DISSANAYAKA","Address":"Ranmak Tech Solution, Hungama Rd, Middeniya","Telephone":"773432901","Email":"ranmakcom@gmail.com"}];
+let agentCount = 0;
+const maxAgents = 20;
+addAgentRow(); // initial row
+
+function addAgentRow() {
+    if(agentCount >= maxAgents) return;
+    agentCount++;
+    const row = document.createElement('div');
+    row.className = 'agent-row';
+    row.innerHTML = `
+        <div class="input-group dropdown">
+            <input type="text" placeholder=" " oninput="showDropdown(this)" />
+            <label>Agent Name</label>
+            <div class="dropdown-content"></div>
+        </div>
+        <div class="input-group"><input type="text" placeholder=" " /><label>Contact</label></div>
+        <div class="input-group"><input type="text" placeholder=" " /><label>Address</label></div>
+        <div class="input-group"><input type="text" placeholder=" " /><label>Telephone</label></div>
+        <div class="input-group"><input type="text" placeholder=" " /><label>Email</label></div>
+        <div class="input-group"><input type="text" placeholder=" " /><label>Work Order</label></div>
+        <div class="input-group"><input type="text" placeholder=" " /><label>Serial</label></div>
+        <div class="input-group"><input type="text" placeholder=" " /><label>Part</label></div>
+        <div class="input-group"><input type="text" placeholder=" " /><label>Tracking Number</label></div>
+        <div class="input-group"><input type="text" placeholder=" " readonly /><label>Date & Time AM/PM</label></div>
+        <button type="button" class="remove-btn" onclick="removeAgentRow(this)">Remove</button>
+    `;
+    document.getElementById('formContainer').appendChild(row);
+    fillCurrentDateTime(row.querySelector('input[readonly]'));
+}
+
+function removeAgentRow(btn) { 
+    btn.parentElement.remove(); 
+    agentCount--; 
+}
+
+function showDropdown(input) {
+    const dropdown = input.nextElementSibling.nextElementSibling;
+    const row = input.closest('.agent-row');
+    dropdown.innerHTML = '';
+    const value = input.value.toLowerCase();
+    const matches = agents.filter(a => a.Agent.toLowerCase().includes(value));
+
+    if(matches.length) row.classList.add('expanded');
+    else row.classList.remove('expanded');
+
+    matches.forEach(agent => {
+        const div = document.createElement('div');
+        div.textContent = agent.Agent;
+        div.onclick = () => {
+            input.value = agent.Agent;
+            row.querySelectorAll('.input-group input')[1].value = agent.Contact;
+            row.querySelectorAll('.input-group input')[2].value = agent.Address;
+            row.querySelectorAll('.input-group input')[3].value = agent.Telephone;
+            row.querySelectorAll('.input-group input')[4].value = agent.Email;
+            dropdown.style.display = 'none';
+            row.classList.remove('expanded');
+        };
+        dropdown.appendChild(div);
+    });
+    dropdown.style.display = matches.length ? 'block' : 'none';
+}
+
+function fillCurrentDateTime(input) {
+    const d = new Date();
+    const hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2,'0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    input.value = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${hour12}:${minutes} ${ampm}`;
+}
+
+// --- Loader & Modals ---
+function showLoader() { document.getElementById('preloader').style.display = 'block'; }
+function hideLoader() { document.getElementById('preloader').style.display = 'none'; }
+function showSuccessModal() { 
+    const modal = document.getElementById('successModal');
+    modal.style.display = 'flex'; 
+    setTimeout(() => { modal.style.display = 'none'; resetForm(); }, 3000);
+}
+function closeSuccessModal() { document.getElementById('successModal').style.display = 'none'; resetForm(); }
+function showErrorModal(message) {
+    const modal = document.getElementById('errorModal');
+    modal.querySelector('.error-text').textContent = message;
+    modal.style.display = 'flex';
+    setTimeout(() => { modal.style.display = 'none'; }, 3000);
+}
+
+// --- Reset Form ---
+function resetForm() {
+    const container = document.getElementById('formContainer');
+    container.innerHTML = '';
+    agentCount = 0;
+    addAgentRow();
+}
+
+// --- Validate Form ---
+function validateForm() {
+    const rows = document.querySelectorAll('.agent-row');
+    for(const row of rows) {
+        const inputs = row.querySelectorAll('.input-group input');
+        for(let i=0; i < inputs.length - 1; i++) { // skip readonly date
+            if(inputs[i].value.trim() === '') return false;
+        }
+    }
+    return true;
+}
+
+// --- Send Emails ---
+async function sendEmails() {
+    if(!validateForm()) {
+        showErrorModal('Please fill all the details before sending!');
+        return;
+    }
+
+    const rows = document.querySelectorAll('.agent-row');
+    showLoader();
+
+    for(const row of rows) {
+        const inputs = row.querySelectorAll('.input-group input');
+        const payload = {
+            email: inputs[4].value,
+            contact: inputs[1].value,
+            workOrder: inputs[5].value,
+            serial: inputs[6].value,
+            part: inputs[7].value, 
+            trackingNumber: inputs[8].value,
+            dateTime: inputs[9].value
+        };
+        try {
+            const res = await fetch('http://127.0.0.1:8585/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if(!res.ok) console.error(`Error for ${payload.email}: ${data.error}`);
+        } catch(err) { console.error(`Fetch error for ${payload.email}: ${err}`); }
+    }
+
+    hideLoader();
+    showSuccessModal();
+}
+</script>
+
+</body>
+</html>
